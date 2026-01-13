@@ -3,3 +3,4 @@ pydicom         # Para leer el formato médico DICOM.
 numpy           # Para manipular las matrices de píxeles de los escáneres CT.
 scikit-image    # Para el preprocesamiento y normalización de imágenes.
 opencv-python   # Para dibujar el contorno del tumor en la interfaz.
+matplotlib
