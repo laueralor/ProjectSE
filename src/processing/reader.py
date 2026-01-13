@@ -2,7 +2,30 @@ import pydicom
 import os
 import matplotlib.pyplot as plt
 from src.database.db_manager import save_patient
+import numpy as np
+import cv2
 
+def resize_image(image, target_size=(256, 256)):
+    """
+    Resizes the image to the target dimensions for the AI model.
+    Professional standard for medical imaging.
+    """
+    resized = cv2.resize(image, target_size, interpolation=cv2.INTER_AREA)
+    return resized
+
+def normalize_image(pixel_array):
+    """
+    Normalizes the image to a 0.0 - 1.0 range.
+    Part of Module 3: Preprocessing.
+    """
+    # 1. Eliminar valores extremos (ruido)
+    min_val = np.min(pixel_array)
+    max_val = np.max(pixel_array)
+    
+    # 2. Aplicar la fórmula de normalización: (x - min) / (max - min)
+    normalized = (pixel_array - min_val) / (max_val - min_val)
+    
+    return normalized
 def read_medical_data(file_path):
     """
     Reads a DICOM file, extracts metadata and saves the pixel array as a PNG image.
@@ -26,6 +49,17 @@ def read_medical_data(file_path):
 
         # 4. Pixel data extraction (Module 3)
         pixel_data = dataset.pixel_array
+
+        normalized_pixels = normalize_image(pixel_data)
+        print(f"Brillo normalizado: {normalized_pixels.min()} a {normalized_pixels.max()}")
+
+        plt.imshow(normalized_pixels, cmap='gray')
+        plt.title("Normalized Scan (0.0 - 1.0)")
+        plt.savefig("samples/test_normalized.png")
+
+        final_image = resize_image(normalized_pixels)
+        print(f"Final dimensions for AI: {final_image.shape} pixels")
+
         print(f"Max Pixel Intensity: {pixel_data.max()}")
         print(f"Min Pixel Intensity: {pixel_data.min()}")
         print("Image loaded successfully into memory.")
