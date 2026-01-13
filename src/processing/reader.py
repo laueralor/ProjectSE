@@ -1,6 +1,7 @@
 import pydicom
 import os
 import matplotlib.pyplot as plt
+from src.database.db_manager import save_patient
 
 def read_medical_data(file_path):
     """
@@ -38,6 +39,8 @@ def read_medical_data(file_path):
         plt.savefig(output_path)
         
         print(f"Success! Image saved as: {output_path}")
+
+        save_patient(dataset.PatientID, dataset.Modality)
         
     except Exception as e:
         print(f"Error reading medical file: {e}")
