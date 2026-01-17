@@ -5,6 +5,7 @@ import os
 import subprocess
 from src.controller import process_and_analyze, get_all_history, search_patient_history
 from customtkinter import CTkImage, CTkInputDialog
+import sqlite3
 
 # Configuración de apariencia
 ctk.set_appearance_mode("dark")
@@ -103,68 +104,85 @@ class MedicalApp(ctk.CTk):
         self.image_label.image = ctk_img # Guardamos referencia para que no desaparezca
 
     def show_history(self):
-        # 1. Preguntar si quiere ver todo o buscar uno
-        dialog = CTkInputDialog(text="Introduce ID de paciente para buscar (o deja vacío para ver todos):", title="Buscar en Historial")
+        # 1. Pedimos el ID para saber qué informe abrir
+        dialog = CTkInputDialog(text="Introduce ID de paciente para VER su informe\n(O deja vacío para ver la lista completa):", title="Gestor de Informes")
         search_id = dialog.get_input()
         
-        # 2. Obtener los datos según la elección
-        if search_id: # Si escribió algo, buscamos ese ID
+        # 2. Obtenemos los datos (usando la función de búsqueda que ya tenemos)
+        if search_id:
             data = search_patient_history(search_id)
-            title = f"Resultados para Paciente: {search_id}"
-        else: # Si no escribió nada, traemos todo
+        else:
             data = get_all_history()
-            title = "Historial Completo"
 
         if not data:
             messagebox.showinfo("Historial", "No se encontraron registros.")
             return
-        
-        # 3. Formatear y mostrar
-        history_text = "ID Paciente | Fecha | Resultado IA\n"
-        history_text += "-"*40 + "\n"
+
+        # 3. SI EL MÉDICO BUSCÓ UN ID: Intentamos abrir el informe automáticamente
+        if search_id:
+            # Comprobamos si el primer resultado tiene una ruta de informe válida
+            if len(data[0]) > 3 and data[0][3]:
+                report_path = data[0][3]
+                try:
+                    # Usamos wslpath para que Windows reconozca la ruta de Linux/WSL
+                    win_path = subprocess.check_output(['wslpath', '-w', report_path]).decode().strip()
+                    # Abrimos el Bloc de notas (es la forma de "verlo" desde la app)
+                    subprocess.run(['notepad.exe', win_path], check=False)
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo abrir el archivo físico: {e}")
+            else:
+                messagebox.showwarning("Aviso", f"El paciente {search_id} no tiene un informe generado todavía.")
+
+        # 4. En cualquier caso, mostramos la lista resumen para confirmar datos
+        history_text = "ID PACIENTE | FECHA | SCORE IA\n" + "-"*40 + "\n"
         for row in data:
-            history_text += f"{row[0]} | {row[1]} | {row[2]}\n"
+            has_report = " [OK]" if len(row) > 3 and row[3] else " [X]"
+            history_text += f"{row[0]} | {row[1]} | {row[2]} {has_report}\n"
         
-        messagebox.showinfo(title, history_text)
+        messagebox.showinfo("Visor de Historial", history_text)
     
     def handle_logout(self):
         if messagebox.askyesno("Cerrar Sesión", "¿Estás seguro de que quieres salir?"):
             self.destroy() # Cerramos la ventana actual
             # Aquí, dependiendo de cómo lances la app, podrías volver a llamar a Login
             # Por ahora, es la forma segura de finalizar la sesión del médico.
-
     def export_report(self):
         status_text = self.status_bar.cget("text")
         if "IA Score" not in status_text:
-            messagebox.showwarning("Aviso", "No hay ningún análisis activo.")
+            messagebox.showwarning("Aviso", "No hay análisis activo para exportar.")
             return
+
+        try:
+            # 1. Extraer ID del paciente
+            p_id = status_text.split("|")[0].split(":")[1].strip()
             
-        file_name = filedialog.asksaveasfilename(defaultextension=".txt",
-                                               filetypes=[("Archivo de texto", "*.txt")])
-        if file_name:
-            try:
-                # Escribimos el archivo
-                with open(file_name, "w") as f:
-                    f.write(f"INFORME MÉDICO - CANCER DETECT AI\n{'='*30}\n")
-                    f.write(f"Detalles: {status_text}\n")
-                
-                messagebox.showinfo("Éxito", "Informe guardado.")
+            # 2. Crear carpeta de reportes
+            reports_dir = os.path.join(os.getcwd(), "reports")
+            if not os.path.exists(reports_dir):
+                os.makedirs(reports_dir)
 
-                # INTENTO DE APERTURA AUTOMÁTICA
-                # Si estás en Windows (nativo)
-                if os.name == 'nt':
-                    os.startfile(file_name)
-                # Si estás en WSL/Linux/Mac
-                else:
-                    try:
-                        # Intento 1: Comando estándar de Linux
-                        subprocess.run(['xdg-open', file_name], check=True)
-                    except:
-                        # Intento 2: Comando específico para WSL (abre el bloc de notas de Windows)
-                        subprocess.run(['notepad.exe', file_name], check=False)
+            # 3. Generar nombre automático
+            file_name = os.path.join(reports_dir, f"Reporte_{p_id}.txt")
 
-            except Exception as e:
-                print(f"Nota: El informe se guardó pero no se pudo abrir automáticamente: {e}")
+            # 4. Escribir el informe
+            with open(file_name, "w") as f:
+                f.write(f"INFORME MÉDICO - CANCER DETECT AI\n{'='*40}\n")
+                f.write(f"ID PACIENTE: {p_id}\n")
+                f.write(f"DETALLES: {status_text}\n")
+
+            # 5. Vincular en Base de Datos
+            conn = sqlite3.connect('hospital.db')
+            cursor = conn.cursor()
+            cursor.execute("UPDATE patients SET report_path = ? WHERE patient_id = ? AND timestamp = (SELECT MAX(timestamp) FROM patients WHERE patient_id = ?)", 
+                         (file_name, p_id, p_id))
+            conn.commit()
+            conn.close()
+
+            messagebox.showinfo("Éxito", "Informe guardado automáticamente.")
+            # ------------------------------------------
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Fallo al abrir el informe: {e}")
 if __name__ == "__main__":
     app = MedicalApp()
     app.mainloop()

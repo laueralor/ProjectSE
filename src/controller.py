@@ -31,29 +31,23 @@ def process_and_analyze(file_path):
         return {"status": "error", "message": str(e)}
     
 def get_all_history():
-    """Trae todos los registros de pacientes de la base de datos."""
     try:
         conn = sqlite3.connect('hospital.db')
         cursor = conn.cursor()
-        # Traemos ID, Fecha y Resultado de IA
-        cursor.execute("SELECT patient_id, timestamp, ai_score FROM patients ORDER BY timestamp DESC")
+        # IMPORTANTE: Pedimos las 4 columnas explícitamente
+        cursor.execute("SELECT patient_id, timestamp, ai_score, report_path FROM patients ORDER BY timestamp DESC")
         rows = cursor.fetchall()
         conn.close()
         return rows
     except Exception as e:
-        print(f"Error al consultar historial: {e}")
+        print(f"Error en consulta de base de datos: {e}")
         return []
     
 def search_patient_history(patient_id):
-    """Busca los registros de un paciente específico por su ID."""
-    try:
-        conn = sqlite3.connect('hospital.db')
-        cursor = conn.cursor()
-        # Buscamos coincidencias con el ID
-        cursor.execute("SELECT patient_id, timestamp, ai_score FROM patients WHERE patient_id = ? ORDER BY timestamp DESC", (patient_id,))
-        rows = cursor.fetchall()
-        conn.close()
-        return rows
-    except Exception as e:
-        print(f"Error al buscar paciente: {e}")
-        return []
+    conn = sqlite3.connect('hospital.db')
+    cursor = conn.cursor()
+    # Asegúrate de pedir las 4 columnas (ID, Fecha, Score, RUTA)
+    cursor.execute("SELECT patient_id, timestamp, ai_score, report_path FROM patients WHERE patient_id = ? ORDER BY timestamp DESC", (patient_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
