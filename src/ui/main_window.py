@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox
 import os
 from PIL import Image
 from customtkinter import CTkImage
+from src.controller import get_all_history
 
 # Configuración de apariencia
 ctk.set_appearance_mode("dark")
@@ -24,14 +25,19 @@ class MedicalApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
 
         # --- Sidebar (Menú lateral profesional) ---
+        # --- Sidebar (Menú lateral profesional) ---
         self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        
+        self.sidebar.grid_rowconfigure(4, weight=1) # Espaciador flexible
+
         self.logo_label = ctk.CTkLabel(self.sidebar, text="CD AI", font=ctk.CTkFont(size=24, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=30)
 
         self.btn_upload = ctk.CTkButton(self.sidebar, text="Cargar DICOM", command=self.handle_upload)
         self.btn_upload.grid(row=1, column=0, padx=20, pady=10)
+
+        self.history_button = ctk.CTkButton(self.sidebar, text="Ver Historial", command=self.show_history)
+        self.history_button.grid(row=2, column=0, padx=20, pady=10)
         
         self.appearance_mode_label = ctk.CTkLabel(self.sidebar, text="Tema:", anchor="w")
         self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
@@ -88,6 +94,21 @@ class MedicalApp(ctk.CTk):
         # Nota: Asegúrate de que tu label de imagen se llame self.image_label
         self.image_label.configure(image=ctk_img, text="") 
         self.image_label.image = ctk_img # Guardamos referencia para que no desaparezca
+
+    def show_history(self):
+        data = get_all_history()
+        if not data:
+            messagebox.showinfo("Historial", "No hay registros todavía.")
+            return
+        
+        # Creamos un resumen de texto con los datos
+        history_text = "ID Paciente | Fecha | Resultado IA\n"
+        history_text += "-"*40 + "\n"
+        for row in data:
+            history_text += f"{row[0]} | {row[1]} | {row[2]}\n"
+        
+        # Lo mostramos en una ventana
+        messagebox.showinfo("Historial de Diagnósticos", history_text)
 if __name__ == "__main__":
     app = MedicalApp()
     app.mainloop()
