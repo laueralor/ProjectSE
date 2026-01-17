@@ -5,43 +5,53 @@ from PIL import Image
 import os
 
 # 1. Definimos la arquitectura (Debe ser idéntica a la del dummy que creamos)
-class SimpleCNN(nn.Module):
-    def __init__(self):
-        super(SimpleCNN, self).__init__()
-        self.conv = nn.Conv2d(1, 10, kernel_size=3)
-        self.fc = nn.Linear(10 * 254 * 254, 1)
+from torchvision import models # Asegúrate de añadir esta importación
 
+class BreastCancerCNN(nn.Module):
+    def __init__(self, num_classes=2, pretrained=False): # Ponemos False por defecto para inferencia
+        super(BreastCancerCNN, self).__init__()
+        self.backbone = models.resnet18(pretrained=pretrained)
+        self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, 
+                                        padding=3, bias=False)
+        num_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(num_features, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.BatchNorm1d(128),
+            nn.Linear(128, num_classes)
+        )
+    
     def forward(self, x):
-        x = torch.relu(self.conv(x))
-        x = x.view(x.size(0), -1)
-        x = torch.sigmoid(self.fc(x))
-        return x
+        return self.backbone(x)
 
 def predict_cancer(image_path):
     try:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # 2. Cargar el modelo
-        model = SimpleCNN()
-        model_path = os.path.join('models', 'model.pth')
+        model = BreastCancerCNN()
+        model_path = os.path.join('models', 'breast_cancer_init.pth')
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.to(device)
-        model.eval() # Modo evaluación
+        model.eval()
 
-        # 3. Transformar imagen
         transform = transforms.Compose([
-            transforms.Resize((256, 256)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485], std=[0.229])
+            transforms.Normalize(mean=[0.5], std=[0.5]) # Corregido de 0. a 0.5
         ])
 
         image = Image.open(image_path).convert('L')
         image = transform(image).unsqueeze(0).to(device)
 
-        # 4. Predicción real
         with torch.no_grad():
             output = model(image)
-            prediction_score = output.item()
+            # SOLUCIÓN AL ERROR: Convertir a probabilidad y elegir la clase 'maligno'
+            probabilities = torch.softmax(output, dim=1)
+            prediction_score = probabilities[0][1].item() # Extrae el segundo valor
         
         return round(prediction_score * 100, 2)
 
