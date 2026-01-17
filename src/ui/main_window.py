@@ -2,6 +2,11 @@ import customtkinter as ctk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 import os
+from src.controller import process_and_analyze
+from tkinter import filedialog, messagebox
+import os
+from PIL import Image
+from customtkinter import CTkImage
 
 # Configuración de apariencia
 ctk.set_appearance_mode("dark")
@@ -41,10 +46,10 @@ class MedicalApp(ctk.CTk):
         self.title_label.pack(pady=(10, 20))
 
         # Visualizador de imagen con bordes redondeados
-        self.image_display = ctk.CTkLabel(self.main_frame, text="Esperando escáner...", 
+        self.image_label = ctk.CTkLabel(self.main_frame, text="Esperando escáner...", 
                                          fg_color=("#ebebeb", "#212121"), corner_radius=15,
                                          width=500, height=400)
-        self.image_display.pack(expand=True, fill="both", padx=20, pady=20)
+        self.image_label.pack(expand=True, fill="both", padx=20, pady=20)
 
         # Barra de estado inferior
         self.status_bar = ctk.CTkLabel(self, text="Sistema conectado a hospital.db", font=ctk.CTkFont(size=12))
@@ -54,16 +59,35 @@ class MedicalApp(ctk.CTk):
         ctk.set_appearance_mode(new_appearance_mode)
 
     def handle_upload(self):
+        # 1. Abrir el buscador de archivos
         file_path = filedialog.askopenfilename(filetypes=[("DICOM files", "*.dcm")])
+        
         if file_path:
-            if os.path.exists("samples/test_result.png"):
-                img = Image.open("samples/test_result.png")
-                # El tamaño del botón de visualización
-                img_ctk = ctk.CTkImage(light_image=img, dark_image=img, size=(450, 450))
-                
-                self.image_display.configure(image=img_ctk, text="")
-                self.status_bar.configure(text=f"Analizando: {os.path.basename(file_path)}", text_color="#2ecc71")
-
+            # 2. Llamar al controlador que acabamos de probar
+            result = process_and_analyze(file_path)
+            
+            if result["status"] == "success":
+                # 3. Mostrar el ID del paciente en la barra de estado
+                self.status_bar.configure(
+                    text=f"Paciente: {result['patient_id']} | IA Score: {result['score']}",
+                    text_color="#2ecc71"
+                )
+                messagebox.showinfo("Éxito", "Imagen procesada correctamente")
+                self.display_image(result["image_path"])
+            else:
+                messagebox.showerror("Error", f"Fallo al procesar: {result['message']}")
+    def display_image(self, image_path):
+        # 1. Cargamos la imagen con PIL
+        img = Image.open(image_path)
+        
+        # 2. La convertimos al formato de CustomTkinter
+        # El tamaño (400, 400) es para que encaje bien en tu panel
+        ctk_img = CTkImage(light_image=img, dark_image=img, size=(400, 400))
+        
+        # 3. La ponemos en el label que tienes en el centro
+        # Nota: Asegúrate de que tu label de imagen se llame self.image_label
+        self.image_label.configure(image=ctk_img, text="") 
+        self.image_label.image = ctk_img # Guardamos referencia para que no desaparezca
 if __name__ == "__main__":
     app = MedicalApp()
     app.mainloop()
