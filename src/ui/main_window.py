@@ -1,13 +1,10 @@
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import os
-from src.controller import process_and_analyze
-from tkinter import filedialog, messagebox
-import os
-from PIL import Image
-from customtkinter import CTkImage
-from src.controller import get_all_history
+import subprocess
+from src.controller import process_and_analyze, get_all_history, search_patient_history
+from customtkinter import CTkImage, CTkInputDialog
 
 # Configuración de apariencia
 ctk.set_appearance_mode("dark")
@@ -38,11 +35,15 @@ class MedicalApp(ctk.CTk):
 
         self.history_button = ctk.CTkButton(self.sidebar, text="Ver Historial", command=self.show_history)
         self.history_button.grid(row=2, column=0, padx=20, pady=10)
+
+        self.btn_export = ctk.CTkButton(self.sidebar, text="Exportar Informe", 
+                                        command=self.export_report)
+        self.btn_export.grid(row=3, column=0, padx=20, pady=10)
         
-        self.appearance_mode_label = ctk.CTkLabel(self.sidebar, text="Tema:", anchor="w")
-        self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
-        self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self.sidebar, values=["Light", "Dark"], command=self.change_appearance_mode)
-        self.appearance_mode_optionemenu.grid(row=6, column=0, padx=20, pady=(10, 20))
+        self.btn_logout = ctk.CTkButton(self.sidebar, text="Cerrar Sesión", 
+                                        fg_color="#e74c3c", hover_color="#c0392b", 
+                                        command=self.handle_logout)
+        self.btn_logout.grid(row=7, column=0, padx=20, pady=20)
 
         # --- Área Principal ---
         self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color="transparent")
@@ -65,8 +66,14 @@ class MedicalApp(ctk.CTk):
         ctk.set_appearance_mode(new_appearance_mode)
 
     def handle_upload(self):
-        # 1. Abrir el buscador de archivos
-        file_path = filedialog.askopenfilename(filetypes=[("DICOM files", "*.dcm")])
+        initial_dir = os.path.join(os.getcwd(), "samples")
+        
+        # 1. Abrir el buscador restringido a archivos .dcm y a la carpeta de muestras
+        file_path = filedialog.askopenfilename(
+            initialdir=initial_dir,
+            title="Seleccionar Escáner DICOM",
+            filetypes=[("Archivos Médicos DICOM", "*.dcm")]
+        )
         
         if file_path:
             # 2. Llamar al controlador que acabamos de probar
@@ -96,19 +103,68 @@ class MedicalApp(ctk.CTk):
         self.image_label.image = ctk_img # Guardamos referencia para que no desaparezca
 
     def show_history(self):
-        data = get_all_history()
+        # 1. Preguntar si quiere ver todo o buscar uno
+        dialog = CTkInputDialog(text="Introduce ID de paciente para buscar (o deja vacío para ver todos):", title="Buscar en Historial")
+        search_id = dialog.get_input()
+        
+        # 2. Obtener los datos según la elección
+        if search_id: # Si escribió algo, buscamos ese ID
+            data = search_patient_history(search_id)
+            title = f"Resultados para Paciente: {search_id}"
+        else: # Si no escribió nada, traemos todo
+            data = get_all_history()
+            title = "Historial Completo"
+
         if not data:
-            messagebox.showinfo("Historial", "No hay registros todavía.")
+            messagebox.showinfo("Historial", "No se encontraron registros.")
             return
         
-        # Creamos un resumen de texto con los datos
+        # 3. Formatear y mostrar
         history_text = "ID Paciente | Fecha | Resultado IA\n"
         history_text += "-"*40 + "\n"
         for row in data:
             history_text += f"{row[0]} | {row[1]} | {row[2]}\n"
         
-        # Lo mostramos en una ventana
-        messagebox.showinfo("Historial de Diagnósticos", history_text)
+        messagebox.showinfo(title, history_text)
+    
+    def handle_logout(self):
+        if messagebox.askyesno("Cerrar Sesión", "¿Estás seguro de que quieres salir?"):
+            self.destroy() # Cerramos la ventana actual
+            # Aquí, dependiendo de cómo lances la app, podrías volver a llamar a Login
+            # Por ahora, es la forma segura de finalizar la sesión del médico.
+
+    def export_report(self):
+        status_text = self.status_bar.cget("text")
+        if "IA Score" not in status_text:
+            messagebox.showwarning("Aviso", "No hay ningún análisis activo.")
+            return
+            
+        file_name = filedialog.asksaveasfilename(defaultextension=".txt",
+                                               filetypes=[("Archivo de texto", "*.txt")])
+        if file_name:
+            try:
+                # Escribimos el archivo
+                with open(file_name, "w") as f:
+                    f.write(f"INFORME MÉDICO - CANCER DETECT AI\n{'='*30}\n")
+                    f.write(f"Detalles: {status_text}\n")
+                
+                messagebox.showinfo("Éxito", "Informe guardado.")
+
+                # INTENTO DE APERTURA AUTOMÁTICA
+                # Si estás en Windows (nativo)
+                if os.name == 'nt':
+                    os.startfile(file_name)
+                # Si estás en WSL/Linux/Mac
+                else:
+                    try:
+                        # Intento 1: Comando estándar de Linux
+                        subprocess.run(['xdg-open', file_name], check=True)
+                    except:
+                        # Intento 2: Comando específico para WSL (abre el bloc de notas de Windows)
+                        subprocess.run(['notepad.exe', file_name], check=False)
+
+            except Exception as e:
+                print(f"Nota: El informe se guardó pero no se pudo abrir automáticamente: {e}")
 if __name__ == "__main__":
     app = MedicalApp()
     app.mainloop()

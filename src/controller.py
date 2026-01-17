@@ -43,3 +43,17 @@ def get_all_history():
     except Exception as e:
         print(f"Error al consultar historial: {e}")
         return []
+    
+def search_patient_history(patient_id):
+    """Busca los registros de un paciente específico por su ID."""
+    try:
+        conn = sqlite3.connect('hospital.db')
+        cursor = conn.cursor()
+        # Buscamos coincidencias con el ID
+        cursor.execute("SELECT patient_id, timestamp, ai_score FROM patients WHERE patient_id = ? ORDER BY timestamp DESC", (patient_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+    except Exception as e:
+        print(f"Error al buscar paciente: {e}")
+        return []
