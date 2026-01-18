@@ -45,7 +45,7 @@ def save_patient(patient_id, modality):
     cursor = conn.cursor()
 
     try:
-        # Usamos INSERT OR IGNORE para que si el paciente ya existe, no de error
+        # We use INSERT OR IGNORE so that if the patient already exists, it doesn't cause an error
         cursor.execute('''
             INSERT OR IGNORE INTO patients (patient_external_id, modality)
             VALUES (?, ?)

@@ -10,23 +10,22 @@ from pathlib import Path
 
 class BreastCancerCNN(nn.Module):
     """
-    CNN avanzada para detección de cáncer de mama.
-    Basada en ResNet18 con transfer learning.
+    Advanced CNN for breast cancer detection.
+    Based on ResNet18 with transfer learning.
     """
     def __init__(self, num_classes=2, pretrained=True):
         super(BreastCancerCNN, self).__init__()
         
-        # Usar ResNet18 preentrenado como base
+        # Use pretrained ResNet18 as base
         self.backbone = models.resnet18(pretrained=pretrained)
         
-        # Modificar primera capa para imágenes en escala de grises
-        self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, 
-                                        padding=3, bias=False)
+        # Modify first layer for grayscale images
+        self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         
-        # Obtener número de features de la última capa
+        # Get number of features from the last layer
         num_features = self.backbone.fc.in_features
         
-        # Reemplazar clasificador final con una arquitectura personalizada
+        # Replace final classifier with a custom architecture
         self.backbone.fc = nn.Sequential(
             nn.Dropout(0.5),
             nn.Linear(num_features, 256),
@@ -42,15 +41,14 @@ class BreastCancerCNN(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
-
 class CustomCNN(nn.Module):
     """
-    CNN personalizada desde cero para comparación.
+    Custom CNN from scratch for comparison.
     """
     def __init__(self, num_classes=2):
         super(CustomCNN, self).__init__()
         
-        # Bloque convolucional 1
+        # Convolutional block 1
         self.conv_block1 = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
@@ -62,7 +60,7 @@ class CustomCNN(nn.Module):
             nn.Dropout2d(0.25)
         )
         
-        # Bloque convolucional 2
+        # Convolutional block 2
         self.conv_block2 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
@@ -74,7 +72,7 @@ class CustomCNN(nn.Module):
             nn.Dropout2d(0.25)
         )
         
-        # Bloque convolucional 3
+        # Convolutional block 3
         self.conv_block3 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
@@ -86,7 +84,7 @@ class CustomCNN(nn.Module):
             nn.Dropout2d(0.25)
         )
         
-        # Bloque convolucional 4
+        # Convolutional block 4
         self.conv_block4 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
@@ -98,10 +96,10 @@ class CustomCNN(nn.Module):
             nn.Dropout2d(0.25)
         )
         
-        # Capa adaptativa para manejar diferentes tamaños de entrada
+        # Adaptive layer to handle different input sizes
         self.adaptive_pool = nn.AdaptiveAvgPool2d((4, 4))
         
-        # Clasificador
+        # Classifier
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(256 * 4 * 4, 512),
@@ -124,11 +122,10 @@ class CustomCNN(nn.Module):
         x = self.classifier(x)
         return x
 
-
 class BreastCancerDataset(Dataset):
     """
-    Dataset personalizado para imágenes de mamografías.
-    Esperado: carpetas 'benign' y 'malignant' con imágenes.
+    Custom dataset for mammography images.
+    Expected: 'benign' and 'malignant' folders with images.
     """
     def __init__(self, root_dir, transform=None):
         self.root_dir = Path(root_dir)
@@ -136,7 +133,7 @@ class BreastCancerDataset(Dataset):
         self.samples = []
         self.classes = ['benign', 'malignant']
         
-        # Cargar rutas de archivos y etiquetas
+        # Load file paths and labels
         for idx, class_name in enumerate(self.classes):
             class_dir = self.root_dir / class_name
             if class_dir.exists():
@@ -150,17 +147,16 @@ class BreastCancerDataset(Dataset):
     def __getitem__(self, idx):
         img_path, label = self.samples[idx]
         
-        # Cargar imagen (asumiendo PNG/JPG, para DICOM necesitarías pydicom)
-        image = Image.open(img_path).convert('L')  # Escala de grises
+        # Load image (assuming PNG/JPG, for DICOM you would need pydicom)
+        image = Image.open(img_path).convert('L')  # Grayscale
         
         if self.transform:
             image = self.transform(image)
         
         return image, label
 
-
 def get_transforms(img_size=224, augment=True):
-    """Retorna transformaciones para entrenamiento y validación."""
+    """Returns transformations for training and validation."""
     if augment:
         train_transform = transforms.Compose([
             transforms.Resize((img_size, img_size)),
@@ -186,16 +182,14 @@ def get_transforms(img_size=224, augment=True):
     
     return train_transform, val_transform
 
-
-def train_model(model, train_loader, val_loader, num_epochs=50, 
-                learning_rate=0.001, device='cuda'):
-    """Función de entrenamiento completa."""
+def train_model(model, train_loader, val_loader, num_epochs=50, learning_rate=0.001, device='cuda'):
+    """Complete training function."""
     model = model.to(device)
     
-    # Loss balanceado para clases desbalanceadas (común en cáncer)
+    # Balanced loss for imbalanced classes (common in cancer)
     criterion = nn.CrossEntropyLoss()
     
-    # Optimizer con weight decay para regularización
+    # Optimizer with weight decay for regularization
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
     
     # Learning rate scheduler
@@ -206,7 +200,7 @@ def train_model(model, train_loader, val_loader, num_epochs=50,
     best_val_acc = 0.0
     
     for epoch in range(num_epochs):
-        # Entrenamiento
+        # Training
         model.train()
         train_loss = 0.0
         train_correct = 0
@@ -228,7 +222,7 @@ def train_model(model, train_loader, val_loader, num_epochs=50,
         
         train_acc = 100 * train_correct / train_total
         
-        # Validación
+        # Validation
         model.eval()
         val_loss = 0.0
         val_correct = 0
@@ -237,6 +231,7 @@ def train_model(model, train_loader, val_loader, num_epochs=50,
         with torch.no_grad():
             for images, labels in val_loader:
                 images, labels = images.to(device), labels.to(device)
+                
                 outputs = model(images)
                 loss = criterion(outputs, labels)
                 
@@ -255,7 +250,7 @@ def train_model(model, train_loader, val_loader, num_epochs=50,
         print(f'Val Loss: {val_loss/len(val_loader):.4f}, Val Acc: {val_acc:.2f}%')
         print('-' * 60)
         
-        # Guardar mejor modelo
+        # Save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             os.makedirs("models", exist_ok=True)
@@ -265,31 +260,30 @@ def train_model(model, train_loader, val_loader, num_epochs=50,
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_acc': val_acc,
             }, 'models/best_breast_cancer_model.pth')
-            print(f'Mejor modelo guardado con val_acc: {val_acc:.2f}%')
-
+            print(f'Best model saved with val_acc: {val_acc:.2f}%')
 
 if __name__ == "__main__":
-    # Configuración
+    # Configuration
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Usando dispositivo: {DEVICE}")
+    print(f"Using device: {DEVICE}")
     
-    # Crear modelo (elige uno)
-    # Opción 1: Transfer learning (recomendado)
+    # Create model (choose one)
+    # Option 1: Transfer learning (recommended)
     model = BreastCancerCNN(num_classes=2, pretrained=True)
     
-    # Opción 2: CNN desde cero
+    # Option 2: CNN from scratch
     # model = CustomCNN(num_classes=2)
     
-    # Guardar arquitectura inicial
+    # Save initial architecture
     os.makedirs("models", exist_ok=True)
     torch.save(model.state_dict(), "models/breast_cancer_init.pth")
-    print("Modelo inicializado y guardado en /models")
+    print("Model initialized and saved in /models")
     
-    print("\nArquitectura del modelo:")
+    print("\nModel architecture:")
     print(model)
-    print(f"\nTotal parámetros: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"\nTotal parameters: {sum(p.numel() for p in model.parameters()):,}")
     
-    # Para entrenar (descomenta y ajusta las rutas):
+    # To train (uncomment and adjust paths):
     """
     train_transform, val_transform = get_transforms(img_size=224, augment=True)
     

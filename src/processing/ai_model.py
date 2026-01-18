@@ -4,11 +4,11 @@ import torchvision.transforms as transforms
 from PIL import Image
 import os
 
-# 1. Definimos la arquitectura (Debe ser idéntica a la del dummy que creamos)
-from torchvision import models # Asegúrate de añadir esta importación
+# 1. We define the architecture (It must be identical to the dummy we created)
+from torchvision import models
 
 class BreastCancerCNN(nn.Module):
-    def __init__(self, num_classes=2, pretrained=False): # Ponemos False por defecto para inferencia
+    def __init__(self, num_classes=2, pretrained=False): # Set to False by default for inference
         super(BreastCancerCNN, self).__init__()
         self.backbone = models.resnet18(pretrained=pretrained)
         self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, 
@@ -41,7 +41,7 @@ def predict_cancer(image_path):
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5]) # Corregido de 0. a 0.5
+            transforms.Normalize(mean=[0.5], std=[0.5])
         ])
 
         image = Image.open(image_path).convert('L')
@@ -49,9 +49,9 @@ def predict_cancer(image_path):
 
         with torch.no_grad():
             output = model(image)
-            # SOLUCIÓN AL ERROR: Convertir a probabilidad y elegir la clase 'maligno'
+            # ERROR SOLUTION: Convert to probability and select the 'malignant' class
             probabilities = torch.softmax(output, dim=1)
-            prediction_score = probabilities[0][1].item() # Extrae el segundo valor
+            prediction_score = probabilities[0][1].item()
         
         return round(prediction_score * 100, 2)
 

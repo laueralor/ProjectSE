@@ -2,10 +2,10 @@ import pydicom
 import numpy as np
 from PIL import Image
 import os
-from src.processing.ai_model import predict_cancer # Importamos tu IA
+from src.processing.ai_model import predict_cancer # Import the AI
 
 def process_dicom(file_path):
-    """Extrae metadatos y prepara la imagen."""
+    """Extracts metadata and prepares the image."""
     ds = pydicom.dcmread(file_path)
     patient_id = ds.PatientID
     
@@ -16,7 +16,7 @@ def process_dicom(file_path):
     output_path = "samples/test_result.png"
     final_image.save(output_path)
 
-    # LLAMADA A LA IA
+    # AI CALL
     score = predict_cancer(output_path)
 
     metadata = {
