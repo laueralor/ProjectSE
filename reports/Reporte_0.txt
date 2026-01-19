@@ -1,4 +1,0 @@
-INFORME MÉDICO - CANCER DETECT AI
-========================================
-ID PACIENTE: 0
-DETALLES: Paciente: 0 | IA Score: N/A

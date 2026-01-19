@@ -1,3 +1,0 @@
-INFORME MÉDICO - CANCER DETECT AI
-==============================
-Detalles: Patient: 0 | IA Score: 48.03%

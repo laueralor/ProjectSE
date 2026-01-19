@@ -1,0 +1,3 @@
+MEDICAL REPORT - CANCER DETECT AI
+========================================
+DETAILS: Patient: 0 | AI Score: N/A
