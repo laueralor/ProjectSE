@@ -3,14 +3,15 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
 import os
-
+from torchvision.models import ResNet18_Weights
 # 1. We define the architecture (It must be identical to the dummy we created)
 from torchvision import models
 
 class BreastCancerCNN(nn.Module):
-    def __init__(self, num_classes=2, pretrained=False): # Set to False by default for inference
+    def __init__(self, num_classes=2, use_weights=False): # Set to False by default for inference
         super(BreastCancerCNN, self).__init__()
-        self.backbone = models.resnet18(pretrained=pretrained)
+        weights = ResNet18_Weights.DEFAULT if use_weights else None
+        self.backbone = models.resnet18(weights=weights)
         self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, 
                                         padding=3, bias=False)
         num_features = self.backbone.fc.in_features

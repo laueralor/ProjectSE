@@ -144,42 +144,67 @@ class MedicalApp(ctk.CTk):
         if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
             self.destroy() #We close the current window
     def export_report(self):
-        status_text = self.status_bar.cget("text")
-        if "IA Score" not in status_text:
-            messagebox.showwarning("Warning", "There is no active analysis to export.")
+        # 1. Obtener el texto de la barra de forma segura
+        try:
+            status_text = self.status_bar.cget("text")
+        except:
+            status_text = ""
+        
+        # DEBUG para ti: mira la terminal al pulsar el botón
+        print(f"DEBUG Terminal: Intentando exportar con texto: '{status_text}'")
+
+        # 2. Validación: Si hay un número de porcentaje, asumimos que hay análisis
+        import re
+        has_score = re.search(r'\d+(\.\d+)?%', status_text) # Busca algo como "46.62%"
+
+        if not has_score:
+            messagebox.showwarning("Warning", "No active analysis detected in the status bar.")
             return
 
         try:
-            # 1. Extract patient ID
-            p_id = status_text.split("|")[0].split(":")[1].strip()
-            
-            # 2. Create reports folder
+            # 3. Extraer el ID (Si falla, ponemos "Unknown")
+            try:
+                # Buscamos el ID después de "Patient:" o "ID:"
+                p_id = re.search(r'(Patient|ID):\s*(\w+)', status_text).group(2)
+            except:
+                p_id = getattr(self, "ultimo_paciente_id", "0")
+
+            # 4. Carpeta de reportes
             reports_dir = os.path.join(os.getcwd(), "reports")
             if not os.path.exists(reports_dir):
                 os.makedirs(reports_dir)
 
-            # 3. Generate automatic name
-            file_name = os.path.join(reports_dir, f"Report_{p_id}.txt")
+            # 5. Crear el archivo
+            file_path = os.path.join(reports_dir, f"Report_Patient_{p_id}.txt")
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write("========================================\n")
+                f.write("      CANCER DETECT AI - REPORT         \n")
+                f.write("========================================\n")
+                f.write(f"Patient ID: {p_id}\n")
+                f.write(f"Analysis: {status_text}\n")
+                f.write(f"Date: {os.popen('date').read()}\n")
+                f.write("========================================\n")
 
-            # 4. Write the report
-            with open(file_name, "w") as f:
-                f.write(f"MEDICAL REPORT - CANCER DETECT AI\n{'='*40}\n")
-                f.write(f"PATIENT ID: {p_id}\n")
-                f.write(f"DETAILS: {status_text}\n")
+            # 6. Actualizar Base de Datos (Módulo 1)
+            try:
+                conn = sqlite3.connect('hospital.db')
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE patients 
+                    SET report_path = ? 
+                    WHERE patient_id = ? 
+                    AND rowid = (SELECT MAX(rowid) FROM patients WHERE patient_id = ?)
+                """, (file_path, p_id, p_id))
+                conn.commit()
+                conn.close()
+            except Exception as db_e:
+                print(f"Database update skipped: {db_e}")
 
-            # 5. Link in Database
-            conn = sqlite3.connect('hospital.db')
-            cursor = conn.cursor()
-            cursor.execute("UPDATE patients SET report_path = ? WHERE patient_id = ? AND timestamp = (SELECT MAX(timestamp) FROM patients WHERE patient_id = ?)", 
-                         (file_name, p_id, p_id))
-            conn.commit()
-            conn.close()
-
-            messagebox.showinfo("Success", "Report saved automatically.")
-            # ------------------------------------------
+            messagebox.showinfo("Success", f"Report created at:\n{file_path}")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open report: {e}")
+            messagebox.showerror("Error", f"Critical failure: {str(e)}")
 if __name__ == "__main__":
     app = MedicalApp()
     app.mainloop()
